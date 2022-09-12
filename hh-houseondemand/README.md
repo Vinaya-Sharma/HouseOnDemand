@@ -1,13 +1,5 @@
-# Sample Hardhat Project
+# House On Demand Smart Contracts
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.
+This project solves the issues regarding long waitings for mortgage approvals, costly intermediaries, and long paperwork in the rental approval market all while incentivising landlords.
 
-Try running some of the following tasks:
-
-```shell
-npx hardhat help
-npx hardhat test
-GAS_REPORT=true npx hardhat test
-npx hardhat node
-npx hardhat run scripts/deploy.js
-```
+The smart contracts so far encompass the Rental Agreement, Lending Service Interfaces, and Aave Mock.

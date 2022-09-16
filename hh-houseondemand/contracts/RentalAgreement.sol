@@ -15,11 +15,24 @@ contract RentalAgreement {
         uint256 firstMonthRentPaid
     );
 
+    event RENTALAGREEMENT_RENTPAID(
+        address tenant,
+        uint256 rent,
+        uint256 timestamp
+    );
+
+    event RENTALAGREEMENT_RENTALENDED(
+        uint256 tenantReturnAmount,
+        uint256 landlordReturnAmount
+    );
+
     //error
     error RENTALAGREEMENT_INCOMPLETECONSTRUCTORARGUMENTS();
     error RENTALAGREEMENT_FUNCTIONRESTRICTEDTOTENANT();
     error RENTALAGREEMENT_FUNCTIONRESTRICTEDTOLANDLORD();
     error RENTALAGREEMENT_termsDoNotMatch();
+    error RENTALAGREEMENT_NOTSUFFICIENTFUNDS();
+    error RENTALAGREEMENT_NOUNPAIDRENT();
 
     //variables
     uint256 public rent;
@@ -114,5 +127,63 @@ contract RentalAgreement {
             _rentGurantee,
             _rent
         );
+    }
+
+    function payRent() public onlyTenant {
+        if (tokenUsedForPayment.allowance(tenant, landlord) < rent) {
+            revert RENTALAGREEMENT_NOTSUFFICIENTFUNDS();
+        }
+
+        tokenUsedForPayment.safeTransferFrom(tenant, landlord, rent);
+        nextTimestamp += 4 weeks;
+
+        emit RENTALAGREEMENT_RENTPAID(tenant, rent, block.timestamp);
+    }
+
+    function withdrawUnpaidRent() public onlyLandlord {
+        if (nextTimestamp > block.timestamp) {
+            revert RENTALAGREEMENT_NOUNPAIDRENT();
+        }
+
+        rentGurantee -= rent;
+        nextTimestamp += 4 weeks;
+        lendingServiceAddress.withdraw(rent);
+        tokenUsedForPayment.transfer(landlord, rent);
+    }
+
+    function endRental(uint256 _damageReturnAmount) public onlyLandlord {
+        if (_damageReturnAmount > securityDeposit) {
+            revert RENTALAGREEMENT_NOTSUFFICIENTFUNDS();
+        }
+
+        uint256 initialDeposit = lendingServiceAddress.depositedBalance();
+        uint256 initialAccountValue = tokenUsedForPayment.balanceOf(
+            address(this)
+        );
+        lendingServiceAddress.withdrawCapitalAndInterests();
+        uint256 finalAccountValue = tokenUsedForPayment.balanceOf(
+            address(this)
+        );
+
+        uint256 interestEarned = finalAccountValue -
+            initialAccountValue -
+            initialDeposit;
+        uint256 fundsForTenant = initialDeposit +
+            interestEarned /
+            2 +
+            _damageReturnAmount;
+        tokenUsedForPayment.transfer(tenant, fundsForTenant);
+
+        uint256 fundsForLandlord = interestEarned / 2;
+
+        if (_damageReturnAmount < securityDeposit) {
+            fundsForLandlord += securityDeposit - _damageReturnAmount;
+        }
+
+        tokenUsedForPayment.transfer(landlord, fundsForLandlord);
+        rentGurantee = 0;
+        securityDeposit = 0;
+
+        emit RENTALAGREEMENT_RENTALENDED(fundsForTenant, fundsForLandlord);
     }
 }
